@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Share, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Share2 } from 'lucide-react-native';
 
 import { BusMap } from '@/components/map-view';
 import { CreateSchoolForm } from '@/components/create-school-form';
+import { SignOutLink } from '@/components/sign-out-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { CardShadow, Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useSchoolFleet } from '@/hooks/useSchoolFleet';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import type { School } from '@/types/database';
 
 export default function SchoolHomeScreen() {
+  const theme = useTheme();
   const { profile } = useAuth();
   const [school, setSchool] = useState<School | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -64,7 +68,8 @@ export default function SchoolHomeScreen() {
         <ThemedView style={styles.header}>
           <ThemedView>
             <ThemedText type="subtitle">{school.name}</ThemedText>
-            <Pressable onPress={handleShare}>
+            <Pressable onPress={handleShare} style={styles.shareRow}>
+              <Share2 size={13} color={theme.textSecondary} />
               <ThemedText type="link" themeColor="textSecondary">
                 Code: {school.join_code} · Share
               </ThemedText>
@@ -73,8 +78,10 @@ export default function SchoolHomeScreen() {
           <SignOutLink />
         </ThemedView>
 
-        <ThemedView style={styles.mapContainer}>
-          <BusMap points={activePoints} busLocation={null} />
+        <ThemedView style={styles.mapCard}>
+          <ThemedView style={[styles.mapContainer, { borderColor: theme.border }, CardShadow]}>
+            <BusMap points={activePoints} busLocation={null} />
+          </ThemedView>
         </ThemedView>
 
         <ThemedView style={styles.list}>
@@ -83,30 +90,29 @@ export default function SchoolHomeScreen() {
               No buses linked yet. Share your school code with drivers.
             </ThemedText>
           ) : (
-            fleet.map((entry) => (
-              <ThemedView key={entry.group.id} type="backgroundElement" style={styles.listRow}>
-                <ThemedText type="default">{entry.group.name}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {entry.trip
-                    ? `On trip since ${new Date(entry.trip.started_at).toLocaleTimeString()}`
-                    : 'Idle'}
-                </ThemedText>
-              </ThemedView>
-            ))
+            fleet.map((entry) => {
+              const onTrip = !!entry.trip;
+              return (
+                <ThemedView
+                  key={entry.group.id}
+                  type="surface"
+                  style={[styles.listRow, { borderColor: theme.border }, CardShadow]}>
+                  <ThemedView
+                    style={[styles.statusDot, { backgroundColor: onTrip ? theme.success : theme.textSecondary }]}
+                  />
+                  <ThemedView style={styles.listRowText}>
+                    <ThemedText type="default">{entry.group.name}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {onTrip ? `On trip since ${new Date(entry.trip!.started_at).toLocaleTimeString()}` : 'Idle'}
+                    </ThemedText>
+                  </ThemedView>
+                </ThemedView>
+              );
+            })
           )}
         </ThemedView>
       </SafeAreaView>
     </ThemedView>
-  );
-}
-
-function SignOutLink() {
-  return (
-    <Pressable onPress={() => supabase.auth.signOut()}>
-      <ThemedText type="link" themeColor="textSecondary">
-        Sign out
-      </ThemedText>
-    </Pressable>
   );
 }
 
@@ -121,7 +127,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
   },
-  mapContainer: { flex: 1 },
+  shareRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginTop: Spacing.half },
+  mapCard: { flex: 1, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
+  mapContainer: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden' },
   list: { padding: Spacing.four, gap: Spacing.two },
-  listRow: { padding: Spacing.three, borderRadius: Spacing.two, gap: Spacing.half },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+  },
+  statusDot: { width: 8, height: 8, borderRadius: Radius.pill },
+  listRowText: { gap: Spacing.half },
 });

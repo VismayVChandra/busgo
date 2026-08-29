@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SignOutLink } from '@/components/sign-out-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import type { Group, Trip } from '@/types/database';
 
 export default function AdminHomeScreen() {
+  const theme = useTheme();
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeTrips, setActiveTrips] = useState<Trip[]>([]);
 
@@ -26,11 +29,7 @@ export default function AdminHomeScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ThemedView style={styles.header}>
           <ThemedText type="subtitle">Admin</ThemedText>
-          <Pressable onPress={() => supabase.auth.signOut()}>
-            <ThemedText type="link" themeColor="textSecondary">
-              Sign out
-            </ThemedText>
-          </Pressable>
+          <SignOutLink />
         </ThemedView>
 
         <ScrollView contentContainerStyle={styles.content}>
@@ -39,7 +38,7 @@ export default function AdminHomeScreen() {
             read-only overview for spot-checking, not a management screen.
           </ThemedText>
 
-          <Section title={`Groups (${groups.length})`}>
+          <Section title={`Groups (${groups.length})`} borderColor={theme.border}>
             {groups.map((group) => (
               <ThemedText key={group.id} type="default">
                 {group.name}
@@ -47,7 +46,7 @@ export default function AdminHomeScreen() {
             ))}
           </Section>
 
-          <Section title={`Active trips (${activeTrips.length})`}>
+          <Section title={`Active trips (${activeTrips.length})`} borderColor={theme.border}>
             {activeTrips.length === 0 ? (
               <ThemedText type="small" themeColor="textSecondary">
                 No buses are currently on a trip.
@@ -66,9 +65,9 @@ export default function AdminHomeScreen() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, borderColor, children }: { title: string; borderColor: string; children: React.ReactNode }) {
   return (
-    <ThemedView type="backgroundElement" style={styles.section}>
+    <ThemedView style={[styles.section, { borderColor }]}>
       <ThemedText type="smallBold">{title}</ThemedText>
       <ThemedView style={styles.sectionBody}>{children}</ThemedView>
     </ThemedView>
@@ -86,6 +85,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
   },
   content: { padding: Spacing.four, gap: Spacing.three },
-  section: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
+  section: { padding: Spacing.three, borderRadius: Radius.lg, borderWidth: 1, gap: Spacing.two },
   sectionBody: { gap: Spacing.one },
 });

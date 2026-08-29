@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { TextField } from '@/components/ui/text-field';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import type { Group } from '@/types/database';
 
@@ -14,7 +14,6 @@ type Props = {
 };
 
 export function CreateGroupForm({ driverId, onCreated }: Props) {
-  const theme = useTheme();
   const [name, setName] = useState('');
   const [schoolCode, setSchoolCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -60,59 +59,27 @@ export function CreateGroupForm({ driverId, onCreated }: Props) {
         This represents your van or route. You&apos;ll get a code to share with parents.
       </ThemedText>
 
-      <TextInput
-        style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
-        placeholder="Group name (e.g. Morning Van - Green Park)"
-        placeholderTextColor={theme.textSecondary}
-        value={name}
-        onChangeText={setName}
-      />
-      <TextInput
-        style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
+      <TextField placeholder="Group name (e.g. Morning Van - Green Park)" value={name} onChangeText={setName} />
+      <TextField
         placeholder="School code (optional)"
-        placeholderTextColor={theme.textSecondary}
         value={schoolCode}
         onChangeText={setSchoolCode}
         autoCapitalize="characters"
       />
 
       {error && (
-        <ThemedText type="small" style={styles.error}>
+        <ThemedText type="small" themeColor="error" style={styles.subtitle}>
           {error}
         </ThemedText>
       )}
 
-      <Pressable
-        onPress={handleSubmit}
-        disabled={loading || !name.trim()}
-        style={[styles.button, { backgroundColor: theme.text, opacity: loading ? 0.6 : 1 }]}>
-        {loading ? (
-          <ActivityIndicator color={theme.background} />
-        ) : (
-          <ThemedText type="smallBold" style={{ color: theme.background }}>
-            Create group
-          </ThemedText>
-        )}
-      </Pressable>
+      <Button label="Create group" onPress={handleSubmit} loading={loading} disabled={!name.trim()} />
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: { gap: Spacing.three, padding: Spacing.four },
-  title: { textAlign: 'center' },
-  subtitle: { textAlign: 'center', marginBottom: Spacing.two },
-  input: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-  },
-  error: { textAlign: 'center' },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-});
+  title: { textAlign: 'center' as const },
+  subtitle: { textAlign: 'center' as const, marginBottom: Spacing.two },
+};

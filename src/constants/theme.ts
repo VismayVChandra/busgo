@@ -9,47 +9,52 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    background: '#F9F6EC',
+    surface: '#FDFDFC',
+    backgroundElement: '#DFECE2',
+    backgroundSelected: '#DFECE2',
+    border: '#E2DED5',
+    text: '#214B4D',
+    textSecondary: '#52706D',
+    primary: '#17666B',
+    primaryForeground: '#F9F6EC',
+    accent: '#E8A936',
+    accentForeground: '#20343C',
+    error: '#C3392C',
+    errorForeground: '#F9F6EC',
+    success: '#4C8C6B',
+    successForeground: '#F9F6EC',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    background: '#152228',
+    surface: '#1C2B31',
+    backgroundElement: '#2A4A46',
+    backgroundSelected: '#2A4A46',
+    border: '#30434B',
+    text: '#FBF9F4',
+    textSecondary: '#C0B8A5',
+    primary: '#3CCBD3',
+    primaryForeground: '#152228',
+    accent: '#F2B450',
+    accentForeground: '#152228',
+    error: '#D6584C',
+    errorForeground: '#FBF9F4',
+    success: '#6FBE95',
+    successForeground: '#152228',
   },
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
+export const Fonts = {
+  displayMedium: 'Fraunces_500Medium',
+  displaySemiBold: 'Fraunces_600SemiBold',
+  sansRegular: 'DMSans_400Regular',
+  sansMedium: 'DMSans_500Medium',
+  sansSemiBold: 'DMSans_600SemiBold',
+  sansBold: 'DMSans_700Bold',
+  mono: Platform.select({ ios: 'ui-monospace', android: 'monospace', default: 'monospace' }),
+} as const;
 
 export const Spacing = {
   half: 2,
@@ -60,6 +65,14 @@ export const Spacing = {
   five: 32,
   six: 64,
 } as const;
+
+export const Radius = { sm: 10, md: 14, lg: 20, pill: 999 } as const;
+
+export const CardShadow = Platform.select({
+  ios: { shadowColor: '#1F4041', shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+  android: { elevation: 3 },
+  default: {},
+});
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

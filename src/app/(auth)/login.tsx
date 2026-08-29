@@ -1,13 +1,22 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { School, Truck, UserRound } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { TextField } from '@/components/ui/text-field';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import type { Role } from '@/types/database';
+
+const ROLE_OPTIONS: { value: Role; label: string; Icon: typeof UserRound }[] = [
+  { value: 'parent', label: 'Parent', Icon: UserRound },
+  { value: 'driver', label: 'Driver', Icon: Truck },
+  { value: 'school', label: 'School', Icon: School },
+];
 
 export default function LoginScreen() {
   const theme = useTheme();
@@ -45,74 +54,56 @@ export default function LoginScreen() {
         </ThemedText>
 
         {mode === 'signUp' && (
-          <TextInput
-            style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
-            placeholder="Full name"
-            placeholderTextColor={theme.textSecondary}
-            value={fullName}
-            onChangeText={setFullName}
-            autoCapitalize="words"
-          />
+          <TextField placeholder="Full name" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
         )}
 
-        <TextInput
-          style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
+        <TextField
           placeholder="Email"
-          placeholderTextColor={theme.textSecondary}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
         />
-        <TextInput
-          style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
-          placeholder="Password"
-          placeholderTextColor={theme.textSecondary}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <TextField placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
 
         {mode === 'signUp' && (
           <ThemedView style={styles.roleRow}>
-            {(['parent', 'driver', 'school'] as const).map((option) => (
-              <Pressable
-                key={option}
-                onPress={() => setRole(option)}
-                style={[
-                  styles.roleOption,
-                  { borderColor: theme.backgroundSelected },
-                  role === option && { backgroundColor: theme.backgroundSelected },
-                ]}>
-                <ThemedText type="smallBold" style={styles.roleOptionText}>
-                  {option === 'parent' ? 'Parent' : option === 'driver' ? 'Driver' : 'School'}
-                </ThemedText>
-              </Pressable>
-            ))}
+            {ROLE_OPTIONS.map(({ value, label, Icon }) => {
+              const selected = role === value;
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() => setRole(value)}
+                  style={[
+                    styles.roleOption,
+                    { borderColor: selected ? theme.primary : theme.border },
+                    selected && { backgroundColor: theme.backgroundSelected },
+                  ]}>
+                  <Icon size={20} color={selected ? theme.primary : theme.textSecondary} />
+                  <ThemedText type="smallBold" style={styles.roleOptionText}>
+                    {label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
           </ThemedView>
         )}
 
         {error && (
-          <ThemedText type="small" themeColor="text" style={styles.error}>
+          <ThemedText type="small" themeColor="error" style={styles.error}>
             {error}
           </ThemedText>
         )}
 
-        <Pressable
+        <Button
+          label={mode === 'signIn' ? 'Sign in' : 'Create account'}
           onPress={handleSubmit}
-          disabled={loading || !email || !password}
-          style={[styles.button, { backgroundColor: theme.text, opacity: loading ? 0.6 : 1 }]}>
-          {loading ? (
-            <ActivityIndicator color={theme.background} />
-          ) : (
-            <ThemedText type="smallBold" style={{ color: theme.background }}>
-              {mode === 'signIn' ? 'Sign in' : 'Create account'}
-            </ThemedText>
-          )}
-        </Pressable>
+          loading={loading}
+          disabled={!email || !password}
+        />
 
         <Pressable onPress={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}>
-          <ThemedText type="link" themeColor="textSecondary" style={styles.switchMode}>
+          <ThemedText type="linkPrimary" style={styles.switchMode}>
             {mode === 'signIn' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
           </ThemedText>
         </Pressable>
@@ -131,27 +122,16 @@ const styles = StyleSheet.create({
   },
   title: { textAlign: 'center' },
   subtitle: { textAlign: 'center', marginBottom: Spacing.two },
-  input: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-  },
   roleRow: { flexDirection: 'row', gap: Spacing.two },
   roleOption: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.md,
     paddingVertical: Spacing.three,
     alignItems: 'center',
+    gap: Spacing.one,
   },
   roleOptionText: { textAlign: 'center' },
   error: { textAlign: 'center' },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
   switchMode: { textAlign: 'center', marginTop: Spacing.two },
 });

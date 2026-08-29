@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { TextField } from '@/components/ui/text-field';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import type { School } from '@/types/database';
 
@@ -14,7 +14,6 @@ type Props = {
 };
 
 export function CreateSchoolForm({ ownerId, onCreated }: Props) {
-  const theme = useTheme();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,51 +46,15 @@ export function CreateSchoolForm({ ownerId, onCreated }: Props) {
         You&apos;ll get a code that drivers can enter to link their van to your school.
       </ThemedText>
 
-      <TextInput
-        style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
-        placeholder="School name"
-        placeholderTextColor={theme.textSecondary}
-        value={name}
-        onChangeText={setName}
-      />
+      <TextField placeholder="School name" value={name} onChangeText={setName} error={error ?? undefined} />
 
-      {error && (
-        <ThemedText type="small" style={styles.error}>
-          {error}
-        </ThemedText>
-      )}
-
-      <Pressable
-        onPress={handleSubmit}
-        disabled={loading || !name.trim()}
-        style={[styles.button, { backgroundColor: theme.text, opacity: loading ? 0.6 : 1 }]}>
-        {loading ? (
-          <ActivityIndicator color={theme.background} />
-        ) : (
-          <ThemedText type="smallBold" style={{ color: theme.background }}>
-            Create school
-          </ThemedText>
-        )}
-      </Pressable>
+      <Button label="Create school" onPress={handleSubmit} loading={loading} disabled={!name.trim()} />
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: { gap: Spacing.three, padding: Spacing.four },
-  title: { textAlign: 'center' },
-  subtitle: { textAlign: 'center', marginBottom: Spacing.two },
-  input: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-  },
-  error: { textAlign: 'center' },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-});
+  title: { textAlign: 'center' as const },
+  subtitle: { textAlign: 'center' as const, marginBottom: Spacing.two },
+};

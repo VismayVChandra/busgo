@@ -5,15 +5,19 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import type { MapPoint } from '@/types/database';
 
+type LatLng = { latitude: number; longitude: number };
+
 type Props = {
   points: MapPoint[];
-  busLocation: { latitude: number; longitude: number } | null;
+  busLocation: LatLng | null;
   highlightedPointId?: string;
+  showRoute?: boolean;
+  routeStart?: LatLng;
 };
 
 // react-native-webview has no web implementation either. Busgo ships
 // native-only (Play Store / App Store); this stands in for local web dev/testing only.
-export function BusMap({ points, busLocation, highlightedPointId }: Props) {
+export function BusMap({ points, busLocation, highlightedPointId, showRoute }: Props) {
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
       <ThemedText type="small" themeColor="textSecondary" style={styles.notice}>
@@ -24,11 +28,18 @@ export function BusMap({ points, busLocation, highlightedPointId }: Props) {
           Bus at {busLocation.latitude.toFixed(4)}, {busLocation.longitude.toFixed(4)}
         </ThemedText>
       )}
-      {points.map((point) => (
-        <ThemedText key={point.id} type={point.id === highlightedPointId ? 'smallBold' : 'small'}>
-          {point.name}
-        </ThemedText>
-      ))}
+      {points.map((point, index) => {
+        const isHighlighted = point.id === highlightedPointId;
+        return (
+          <ThemedText
+            key={point.id}
+            type={isHighlighted ? 'smallBold' : 'small'}
+            themeColor={isHighlighted ? 'accent' : undefined}>
+            {showRoute ? `${index + 1}. ` : ''}
+            {point.name}
+          </ThemedText>
+        );
+      })}
     </ThemedView>
   );
 }

@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Share, StyleSheet, TextInput } from 'react-native';
+import { Pressable, Share, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Route as RouteIcon, Share2 } from 'lucide-react-native';
 
 import { CreateGroupForm } from '@/components/create-group-form';
 import { BusMap } from '@/components/map-view';
+import { SignOutLink } from '@/components/sign-out-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { TripControls } from '@/components/trip-controls';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { TextField } from '@/components/ui/text-field';
+import { CardShadow, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useActiveTrip } from '@/hooks/useActiveTrip';
 import { useGroupRoster } from '@/hooks/useGroupRoster';
 import { useTripLocationSubscription } from '@/hooks/useTripLocationSubscription';
+import { TripControls } from '@/components/trip-controls';
 import { useAuth } from '@/lib/auth';
-import { startTripTracking } from '@/lib/location';
+import { getCurrentLocation, startTripTracking } from '@/lib/location';
+import { optimizeRouteOrder } from '@/lib/routing';
 import { supabase } from '@/lib/supabase';
-import type { Group, School } from '@/types/database';
+import type { Group, School, Student } from '@/types/database';
 
 export default function DriverHomeScreen() {
+  const theme = useTheme();
   const { profile } = useAuth();
   const [group, setGroup] = useState<Group | null>(null);
   const [groupLoaded, setGroupLoaded] = useState(false);
@@ -25,12 +31,45 @@ export default function DriverHomeScreen() {
   const [trackedSchoolId, setTrackedSchoolId] = useState(group?.school_id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [routeStart, setRouteStart] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [orderedRoster, setOrderedRoster] = useState<Student[] | null>(null);
+  const [optimizing, setOptimizing] = useState(false);
   // Imperative handle for the GPS subscription, not display state.
   const stopTrackingRef = useRef<(() => void) | null>(null);
 
   const roster = useGroupRoster(group?.id);
   const { trip } = useActiveTrip(group?.id);
   const busLocation = useTripLocationSubscription(trip?.id);
+  const displayRoster = orderedRoster ?? roster;
+
+  const rosterKey = roster.map((s) => s.id).sort().join(',');
+  const [trackedRosterKey, setTrackedRosterKey] = useState(rosterKey);
+  // A newly joined (or removed) student invalidates any previously computed
+  // route order — reset during render, rather than in an effect.
+  if (rosterKey !== trackedRosterKey) {
+    setTrackedRosterKey(rosterKey);
+    if (orderedRoster) {
+      setOrderedRoster(null);
+      setRouteStart(null);
+    }
+  }
+
+  async function handleOptimizeRoute() {
+    setError(null);
+    setOptimizing(true);
+    try {
+      const start = await getCurrentLocation();
+      setRouteStart({ latitude: start.lat, longitude: start.lng });
+      const points = roster.map((s) => ({ id: s.id, lat: s.pickup_lat, lng: s.pickup_lng }));
+      const ordered = optimizeRouteOrder({ lat: start.lat, lng: start.lng }, points);
+      const rosterById = new Map(roster.map((s) => [s.id, s]));
+      setOrderedRoster(ordered.map((p) => rosterById.get(p.id)!));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not get your location');
+    } finally {
+      setOptimizing(false);
+    }
+  }
 
   // Reset during render when the linked school changes, rather than in an effect.
   if (group?.school_id !== trackedSchoolId) {
@@ -132,7 +171,8 @@ export default function DriverHomeScreen() {
         <ThemedView style={styles.header}>
           <ThemedView>
             <ThemedText type="subtitle">{group.name}</ThemedText>
-            <Pressable onPress={handleShare}>
+            <Pressable onPress={handleShare} style={styles.shareRow}>
+              <Share2 size={13} color={theme.textSecondary} />
               <ThemedText type="link" themeColor="textSecondary">
                 Code: {group.join_code} · Share
               </ThemedText>
@@ -151,15 +191,46 @@ export default function DriverHomeScreen() {
           <LinkSchoolRow groupId={group.id} onLinked={(s) => setSchool(s)} />
         )}
 
-        <ThemedView style={styles.mapContainer}>
-          <BusMap
-            points={roster.map((s) => ({ id: s.id, lat: s.pickup_lat, lng: s.pickup_lng, name: s.full_name }))}
-            busLocation={busLocation ? { latitude: busLocation.lat, longitude: busLocation.lng } : null}
-          />
+        {roster.length > 1 && (
+          <ThemedView style={styles.optimizeRow}>
+            <Button
+              label={orderedRoster ? 'Re-optimize route' : 'Optimize pickup route'}
+              onPress={handleOptimizeRoute}
+              loading={optimizing}
+              variant="outline"
+              icon={<RouteIcon size={16} color={theme.primary} />}
+            />
+          </ThemedView>
+        )}
+
+        <ThemedView style={styles.mapCard}>
+          <ThemedView style={[styles.mapContainer, { borderColor: theme.border }, CardShadow]}>
+            <BusMap
+              points={displayRoster.map((s) => ({ id: s.id, lat: s.pickup_lat, lng: s.pickup_lng, name: s.full_name }))}
+              busLocation={busLocation ? { latitude: busLocation.lat, longitude: busLocation.lng } : null}
+              showRoute={!!orderedRoster}
+              routeStart={routeStart ?? undefined}
+            />
+          </ThemedView>
         </ThemedView>
 
+        {orderedRoster && (
+          <ThemedView style={styles.stopList}>
+            {orderedRoster.map((student, index) => (
+              <ThemedView key={student.id} style={styles.stopRow}>
+                <ThemedView style={[styles.stopBadge, { backgroundColor: theme.primary }]}>
+                  <ThemedText type="small" style={{ color: theme.primaryForeground }}>
+                    {index + 1}
+                  </ThemedText>
+                </ThemedView>
+                <ThemedText type="small">{student.full_name}</ThemedText>
+              </ThemedView>
+            ))}
+          </ThemedView>
+        )}
+
         {error && (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText type="small" themeColor="error" style={styles.error}>
             {error}
           </ThemedText>
         )}
@@ -178,7 +249,6 @@ export default function DriverHomeScreen() {
 }
 
 function LinkSchoolRow({ groupId, onLinked }: { groupId: string; onLinked: (school: School) => void }) {
-  const theme = useTheme();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,34 +275,23 @@ function LinkSchoolRow({ groupId, onLinked }: { groupId: string; onLinked: (scho
   }
 
   return (
-    <ThemedView style={styles.linkRow}>
-      <TextInput
-        style={[styles.linkInput, { color: theme.text, borderColor: theme.backgroundSelected }]}
-        placeholder="Link to a school (optional)"
-        placeholderTextColor={theme.textSecondary}
-        value={code}
-        onChangeText={setCode}
-        autoCapitalize="characters"
-      />
-      <Pressable onPress={handleLink} disabled={loading || !code.trim()} style={styles.linkButton}>
-        {loading ? <ActivityIndicator color={theme.text} /> : <ThemedText type="smallBold">Link</ThemedText>}
-      </Pressable>
+    <ThemedView style={styles.linkOuter}>
+      <ThemedView style={styles.linkRow}>
+        <TextField
+          containerStyle={styles.linkInput}
+          placeholder="Link to a school (optional)"
+          value={code}
+          onChangeText={setCode}
+          autoCapitalize="characters"
+        />
+        <Button label="Link" onPress={handleLink} loading={loading} disabled={!code.trim()} variant="outline" style={styles.linkButton} />
+      </ThemedView>
       {error && (
-        <ThemedText type="small" style={styles.error}>
+        <ThemedText type="small" themeColor="error" style={styles.error}>
           {error}
         </ThemedText>
       )}
     </ThemedView>
-  );
-}
-
-function SignOutLink() {
-  return (
-    <Pressable onPress={() => supabase.auth.signOut()}>
-      <ThemedText type="link" themeColor="textSecondary">
-        Sign out
-      </ThemedText>
-    </Pressable>
   );
 }
 
@@ -247,18 +306,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
   },
+  shareRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginTop: Spacing.half },
   schoolLine: { paddingHorizontal: Spacing.four, marginBottom: Spacing.two },
-  linkRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingHorizontal: Spacing.four, marginBottom: Spacing.two },
-  linkInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 14,
-  },
-  linkButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  mapContainer: { flex: 1 },
+  linkOuter: { paddingHorizontal: Spacing.four, marginBottom: Spacing.two, gap: Spacing.one },
+  linkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  linkInput: { flex: 1 },
+  linkButton: { paddingHorizontal: Spacing.three },
+  optimizeRow: { paddingHorizontal: Spacing.four, marginBottom: Spacing.two },
+  mapCard: { flex: 1, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
+  mapContainer: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden' },
+  stopList: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, gap: Spacing.two },
+  stopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  stopBadge: { width: 22, height: 22, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   error: { textAlign: 'center', paddingHorizontal: Spacing.four },
   footer: { padding: Spacing.four },
 });

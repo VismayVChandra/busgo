@@ -1,7 +1,6 @@
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { Play, Square } from 'lucide-react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/use-theme';
 
 type Props = {
@@ -15,28 +14,18 @@ export function TripControls({ isActive, busy, onStart, onEnd }: Props) {
   const theme = useTheme();
 
   return (
-    <Pressable
+    <Button
+      label={isActive ? 'End trip' : 'Start trip'}
       onPress={isActive ? onEnd : onStart}
-      disabled={busy}
-      style={[
-        styles.button,
-        { backgroundColor: isActive ? '#E63946' : theme.text, opacity: busy ? 0.6 : 1 },
-      ]}>
-      {busy ? (
-        <ActivityIndicator color={theme.background} />
-      ) : (
-        <ThemedText type="smallBold" style={{ color: isActive ? '#ffffff' : theme.background }}>
-          {isActive ? 'End trip' : 'Start trip'}
-        </ThemedText>
-      )}
-    </Pressable>
+      loading={busy}
+      variant={isActive ? 'danger' : 'primary'}
+      icon={
+        isActive ? (
+          <Square size={16} color={theme.errorForeground} />
+        ) : (
+          <Play size={16} color={theme.primaryForeground} />
+        )
+      }
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-});

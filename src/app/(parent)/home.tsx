@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Plus } from 'lucide-react-native';
 
 import { BusMap } from '@/components/map-view';
 import { JoinGroupForm } from '@/components/join-group-form';
+import { SignOutLink } from '@/components/sign-out-link';
 import { StopEtaCard } from '@/components/stop-eta-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { CardShadow, Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useActiveTrip } from '@/hooks/useActiveTrip';
 import { useTripLocationSubscription } from '@/hooks/useTripLocationSubscription';
 import { useAuth } from '@/lib/auth';
@@ -17,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 import type { Student } from '@/types/database';
 
 export default function ParentHomeScreen() {
+  const theme = useTheme();
   const { profile } = useAuth();
   const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
@@ -66,29 +70,44 @@ export default function ParentHomeScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ThemedView style={styles.header}>
           <ThemedView style={styles.childRow}>
-            {students.map((student) => (
-              <Pressable
-                key={student.id}
-                onPress={() => setSelectedId(student.id)}
-                style={[styles.childChip, student.id === selectedId && styles.childChipSelected]}>
-                <ThemedText type="smallBold">{student.full_name}</ThemedText>
-              </Pressable>
-            ))}
-            <Pressable onPress={() => router.push('/(parent)/join')} style={styles.addChip}>
-              <ThemedText type="smallBold">+</ThemedText>
+            {students.map((student) => {
+              const selectedChip = student.id === selectedId;
+              return (
+                <Pressable
+                  key={student.id}
+                  onPress={() => setSelectedId(student.id)}
+                  style={[
+                    styles.childChip,
+                    { borderColor: selectedChip ? theme.primary : theme.border },
+                    selectedChip && { backgroundColor: theme.backgroundSelected },
+                  ]}>
+                  <ThemedText type="smallBold" themeColor={selectedChip ? 'primary' : undefined}>
+                    {student.full_name}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+            <Pressable
+              onPress={() => router.push('/(parent)/join')}
+              style={[styles.addChip, { borderColor: theme.border }]}>
+              <Plus size={16} color={theme.primary} />
             </Pressable>
           </ThemedView>
           <SignOutLink />
         </ThemedView>
 
-        <ThemedView style={styles.mapContainer}>
-          <BusMap
-            points={
-              selected ? [{ id: selected.id, lat: selected.pickup_lat, lng: selected.pickup_lng, name: selected.full_name }] : []
-            }
-            busLocation={busLocation ? { latitude: busLocation.lat, longitude: busLocation.lng } : null}
-            highlightedPointId={selected?.id}
-          />
+        <ThemedView style={styles.mapCard}>
+          <ThemedView style={[styles.mapContainer, { borderColor: theme.border }, CardShadow]}>
+            <BusMap
+              points={
+                selected
+                  ? [{ id: selected.id, lat: selected.pickup_lat, lng: selected.pickup_lng, name: selected.full_name }]
+                  : []
+              }
+              busLocation={busLocation ? { latitude: busLocation.lat, longitude: busLocation.lng } : null}
+              highlightedPointId={selected?.id}
+            />
+          </ThemedView>
         </ThemedView>
 
         {selected && (
@@ -101,16 +120,6 @@ export default function ParentHomeScreen() {
         )}
       </SafeAreaView>
     </ThemedView>
-  );
-}
-
-function SignOutLink() {
-  return (
-    <Pressable onPress={() => supabase.auth.signOut()}>
-      <ThemedText type="link" themeColor="textSecondary">
-        Sign out
-      </ThemedText>
-    </Pressable>
   );
 }
 
@@ -129,20 +138,18 @@ const styles = StyleSheet.create({
   childChip: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
-    borderRadius: Spacing.four,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: '#B0B4BA',
   },
-  childChipSelected: { backgroundColor: '#E0E1E6' },
   addChip: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: '#B0B4BA',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mapContainer: { flex: 1 },
+  mapCard: { flex: 1, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
+  mapContainer: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden' },
   footer: { padding: Spacing.four },
 });

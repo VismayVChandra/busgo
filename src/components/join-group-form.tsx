@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { Locate, MapPin, Search } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { TextField } from '@/components/ui/text-field';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { geocodeAddress, type GeocodeResult } from '@/lib/geocoding';
 import { getCurrentLocation } from '@/lib/location';
 import { supabase } from '@/lib/supabase';
 
@@ -12,17 +16,23 @@ type Props = {
   onJoined: () => void;
 };
 
+type Pickup = { lat: number; lng: number; label?: string };
+
 export function JoinGroupForm({ onJoined }: Props) {
   const theme = useTheme();
   const [joinCode, setJoinCode] = useState('');
   const [childName, setChildName] = useState('');
-  const [pickup, setPickup] = useState<{ lat: number; lng: number } | null>(null);
+  const [pickup, setPickup] = useState<Pickup | null>(null);
   const [locating, setLocating] = useState(false);
+  const [addressQuery, setAddressQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GeocodeResult[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleUseCurrentLocation() {
     setError(null);
+    setSearchResults(null);
     setLocating(true);
     try {
       const location = await getCurrentLocation();
@@ -32,6 +42,25 @@ export function JoinGroupForm({ onJoined }: Props) {
     } finally {
       setLocating(false);
     }
+  }
+
+  async function handleSearchAddress() {
+    setError(null);
+    setSearching(true);
+    try {
+      const results = await geocodeAddress(addressQuery);
+      if (results.length === 0) setError('No matches for that address — try being more specific');
+      setSearchResults(results);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not search for that address');
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function handleSelectResult(result: GeocodeResult) {
+    setPickup(result);
+    setSearchResults(null);
   }
 
   async function handleSubmit() {
@@ -63,54 +92,84 @@ export function JoinGroupForm({ onJoined }: Props) {
         Enter the code your driver shared with you.
       </ThemedText>
 
-      <TextInput
-        style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
-        placeholder="Join code"
-        placeholderTextColor={theme.textSecondary}
-        value={joinCode}
-        onChangeText={setJoinCode}
-        autoCapitalize="characters"
-      />
-      <TextInput
-        style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
-        placeholder="Child's name"
-        placeholderTextColor={theme.textSecondary}
-        value={childName}
-        onChangeText={setChildName}
-        autoCapitalize="words"
+      <TextField placeholder="Join code" value={joinCode} onChangeText={setJoinCode} autoCapitalize="characters" />
+      <TextField placeholder="Child's name" value={childName} onChangeText={setChildName} autoCapitalize="words" />
+
+      <ThemedText type="smallBold" style={styles.sectionLabel}>
+        Pickup location
+      </ThemedText>
+
+      {pickup && (
+        <ThemedView type="surface" style={[styles.pickupSummary, { borderColor: theme.border }]}>
+          <MapPin size={15} color={theme.primary} />
+          <ThemedText type="small" style={styles.pickupSummaryText}>
+            {pickup.label ?? `${pickup.lat.toFixed(5)}, ${pickup.lng.toFixed(5)}`}
+          </ThemedText>
+        </ThemedView>
+      )}
+
+      <Button
+        label="Use my current location"
+        onPress={handleUseCurrentLocation}
+        loading={locating}
+        variant="outline"
+        icon={<Locate size={16} color={theme.primary} />}
       />
 
-      <Pressable
-        onPress={handleUseCurrentLocation}
-        disabled={locating}
-        style={[styles.secondaryButton, { borderColor: theme.backgroundSelected }]}>
-        {locating ? (
-          <ActivityIndicator color={theme.text} />
-        ) : (
-          <ThemedText type="smallBold">
-            {pickup ? `Pickup set (${pickup.lat.toFixed(4)}, ${pickup.lng.toFixed(4)})` : 'Use my current location'}
-          </ThemedText>
-        )}
-      </Pressable>
+      <ThemedView style={styles.dividerRow}>
+        <ThemedView style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+        <ThemedText type="small" themeColor="textSecondary">
+          or enter an address
+        </ThemedText>
+        <ThemedView style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+      </ThemedView>
+
+      <ThemedView style={styles.searchRow}>
+        <TextField
+          containerStyle={styles.searchInput}
+          placeholder="Street, area, landmark…"
+          value={addressQuery}
+          onChangeText={setAddressQuery}
+        />
+        <Button
+          label="Search"
+          onPress={handleSearchAddress}
+          loading={searching}
+          disabled={!addressQuery.trim()}
+          variant="outline"
+          icon={<Search size={16} color={theme.primary} />}
+          style={styles.searchButton}
+        />
+      </ThemedView>
+
+      {searchResults && searchResults.length > 0 && (
+        <ThemedView style={styles.resultsList}>
+          {searchResults.map((result, index) => (
+            <Pressable
+              key={`${result.lat},${result.lng},${index}`}
+              onPress={() => handleSelectResult(result)}
+              style={[styles.resultRow, { borderColor: theme.border }]}>
+              <MapPin size={14} color={theme.textSecondary} />
+              <ThemedText type="small" style={styles.resultRowText}>
+                {result.label}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </ThemedView>
+      )}
 
       {error && (
-        <ThemedText type="small" style={styles.error}>
+        <ThemedText type="small" themeColor="error" style={styles.error}>
           {error}
         </ThemedText>
       )}
 
-      <Pressable
+      <Button
+        label="Confirm & join"
         onPress={handleSubmit}
-        disabled={loading || !joinCode.trim() || !childName.trim() || !pickup}
-        style={[styles.button, { backgroundColor: theme.text, opacity: loading ? 0.6 : 1 }]}>
-        {loading ? (
-          <ActivityIndicator color={theme.background} />
-        ) : (
-          <ThemedText type="smallBold" style={{ color: theme.background }}>
-            Confirm &amp; join
-          </ThemedText>
-        )}
-      </Pressable>
+        loading={loading}
+        disabled={!joinCode.trim() || !childName.trim() || !pickup}
+      />
     </ThemedView>
   );
 }
@@ -119,23 +178,30 @@ const styles = StyleSheet.create({
   container: { gap: Spacing.three, padding: Spacing.four },
   title: { textAlign: 'center' },
   subtitle: { textAlign: 'center', marginBottom: Spacing.two },
-  input: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
+  sectionLabel: { marginTop: Spacing.one },
+  pickupSummary: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
+  pickupSummaryText: { flex: 1 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  dividerLine: { flex: 1, height: 1 },
+  searchRow: { flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-start' },
+  searchInput: { flex: 1 },
+  searchButton: { paddingHorizontal: Spacing.three },
+  resultsList: { gap: Spacing.one },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.two,
+  },
+  resultRowText: { flex: 1 },
   error: { textAlign: 'center' },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
 });
