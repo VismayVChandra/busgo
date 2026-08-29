@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'driver' | 'parent';
+export type Role = 'admin' | 'driver' | 'parent' | 'school';
 
 export type Profile = {
   id: string;
@@ -10,37 +10,30 @@ export type Profile = {
   created_at: string;
 };
 
-export type Bus = {
+export type School = {
   id: string;
   name: string;
-  license_plate: string | null;
-  driver_id: string | null;
+  owner_id: string;
+  join_code: string;
   created_at: string;
 };
 
-export type Route = {
+export type Group = {
   id: string;
   name: string;
-  bus_id: string | null;
-  created_at: string;
-};
-
-export type Stop = {
-  id: string;
-  route_id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  sequence_order: number;
+  driver_id: string;
+  school_id: string | null;
+  join_code: string;
   created_at: string;
 };
 
 export type Student = {
   id: string;
-  full_name: string;
+  group_id: string;
   parent_id: string;
-  route_id: string;
-  stop_id: string;
+  full_name: string;
+  pickup_lat: number;
+  pickup_lng: number;
   created_at: string;
 };
 
@@ -48,8 +41,7 @@ export type TripStatus = 'active' | 'completed';
 
 export type Trip = {
   id: string;
-  route_id: string;
-  bus_id: string;
+  group_id: string;
   driver_id: string;
   status: TripStatus;
   started_at: string;
@@ -65,3 +57,5 @@ export type TripLocation = {
   speed: number | null;
   heading: number | null;
 };
+
+export type MapPoint = { id: string; lat: number; lng: number; name: string };

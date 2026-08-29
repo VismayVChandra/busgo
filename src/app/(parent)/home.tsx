@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import { BusMap } from '@/components/map-view';
+import { JoinGroupForm } from '@/components/join-group-form';
 import { StopEtaCard } from '@/components/stop-eta-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,25 +14,25 @@ import { useTripLocationSubscription } from '@/hooks/useTripLocationSubscription
 import { useAuth } from '@/lib/auth';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
-import type { Stop, Student } from '@/types/database';
+import type { Student } from '@/types/database';
 
 export default function ParentHomeScreen() {
   const { profile } = useAuth();
+  const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [stops, setStops] = useState<Stop[]>([]);
 
   const selected = students.find((s) => s.id === selectedId) ?? null;
-  const selectedStop = stops.find((s) => s.id === selected?.stop_id) ?? null;
 
-  const { trip } = useActiveTrip(selected?.route_id);
+  const { trip } = useActiveTrip(selected?.group_id);
   const busLocation = useTripLocationSubscription(trip?.id);
 
   useEffect(() => {
     registerForPushNotifications();
   }, []);
 
-  useEffect(() => {
+  function loadStudents() {
     if (!profile) return;
     supabase
       .from('students')
@@ -40,26 +42,19 @@ export default function ParentHomeScreen() {
         const list = (data as Student[]) ?? [];
         setStudents(list);
         setSelectedId((current) => current ?? list[0]?.id ?? null);
+        setLoaded(true);
       });
-  }, [profile]);
+  }
 
-  useEffect(() => {
-    if (!selected) return;
-    supabase
-      .from('stops')
-      .select('*')
-      .eq('route_id', selected.route_id)
-      .order('sequence_order', { ascending: true })
-      .then(({ data }) => setStops((data as Stop[]) ?? []));
-  }, [selected]);
+  useEffect(loadStudents, [profile]);
+
+  if (!loaded) return null;
 
   if (students.length === 0) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.centered}>
-          <ThemedText type="default" themeColor="textSecondary" style={styles.centeredText}>
-            No children are linked to your account yet. Ask an admin to add your child.
-          </ThemedText>
+          <JoinGroupForm onJoined={loadStudents} />
           <SignOutLink />
         </SafeAreaView>
       </ThemedView>
@@ -70,34 +65,38 @@ export default function ParentHomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ThemedView style={styles.header}>
-          {students.length > 1 ? (
-            <ThemedView style={styles.childRow}>
-              {students.map((student) => (
-                <Pressable
-                  key={student.id}
-                  onPress={() => setSelectedId(student.id)}
-                  style={[styles.childChip, student.id === selectedId && styles.childChipSelected]}>
-                  <ThemedText type="smallBold">{student.full_name}</ThemedText>
-                </Pressable>
-              ))}
-            </ThemedView>
-          ) : (
-            <ThemedText type="subtitle">{selected?.full_name}</ThemedText>
-          )}
+          <ThemedView style={styles.childRow}>
+            {students.map((student) => (
+              <Pressable
+                key={student.id}
+                onPress={() => setSelectedId(student.id)}
+                style={[styles.childChip, student.id === selectedId && styles.childChipSelected]}>
+                <ThemedText type="smallBold">{student.full_name}</ThemedText>
+              </Pressable>
+            ))}
+            <Pressable onPress={() => router.push('/(parent)/join')} style={styles.addChip}>
+              <ThemedText type="smallBold">+</ThemedText>
+            </Pressable>
+          </ThemedView>
           <SignOutLink />
         </ThemedView>
 
         <ThemedView style={styles.mapContainer}>
           <BusMap
-            stops={stops}
+            points={
+              selected ? [{ id: selected.id, lat: selected.pickup_lat, lng: selected.pickup_lng, name: selected.full_name }] : []
+            }
             busLocation={busLocation ? { latitude: busLocation.lat, longitude: busLocation.lng } : null}
-            highlightedStopId={selectedStop?.id}
+            highlightedPointId={selected?.id}
           />
         </ThemedView>
 
-        {selectedStop && (
+        {selected && (
           <ThemedView style={styles.footer}>
-            <StopEtaCard stop={selectedStop} busLocation={busLocation} />
+            <StopEtaCard
+              point={{ name: selected.full_name, lat: selected.pickup_lat, lng: selected.pickup_lng }}
+              busLocation={busLocation}
+            />
           </ThemedView>
         )}
       </SafeAreaView>
@@ -118,8 +117,7 @@ function SignOutLink() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.three, padding: Spacing.four },
-  centeredText: { textAlign: 'center' },
+  centered: { flex: 1, justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -127,7 +125,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
   },
-  childRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap', flex: 1 },
+  childRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap', flex: 1, alignItems: 'center' },
   childChip: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
@@ -136,6 +134,15 @@ const styles = StyleSheet.create({
     borderColor: '#B0B4BA',
   },
   childChipSelected: { backgroundColor: '#E0E1E6' },
+  addChip: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#B0B4BA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   mapContainer: { flex: 1 },
   footer: { padding: Spacing.four },
 });

@@ -4,27 +4,27 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { estimateEtaMinutes } from '@/lib/eta';
-import type { Stop, TripLocation } from '@/types/database';
+import type { TripLocation } from '@/types/database';
 
 type Props = {
-  stop: Stop;
+  point: { name: string; lat: number; lng: number };
   busLocation: TripLocation | null;
 };
 
-export function StopEtaCard({ stop, busLocation }: Props) {
+export function StopEtaCard({ point, busLocation }: Props) {
   const etaMinutes = busLocation
     ? estimateEtaMinutes(
         { lat: busLocation.lat, lng: busLocation.lng },
-        { lat: stop.lat, lng: stop.lng }
+        { lat: point.lat, lng: point.lng }
       )
     : null;
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
       <ThemedText type="small" themeColor="textSecondary">
-        Your stop
+        Your pickup point
       </ThemedText>
-      <ThemedText type="subtitle">{stop.name}</ThemedText>
+      <ThemedText type="subtitle">{point.name}</ThemedText>
       {etaMinutes === null ? (
         <ThemedText type="default" themeColor="textSecondary">
           No active trip right now

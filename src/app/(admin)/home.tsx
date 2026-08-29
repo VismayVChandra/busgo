@@ -6,16 +6,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import type { Bus, Route, Trip } from '@/types/database';
+import type { Group, Trip } from '@/types/database';
 
 export default function AdminHomeScreen() {
-  const [buses, setBuses] = useState<Bus[]>([]);
-  const [routes, setRoutes] = useState<Route[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [activeTrips, setActiveTrips] = useState<Trip[]>([]);
 
   useEffect(() => {
-    supabase.from('buses').select('*').then(({ data }) => setBuses((data as Bus[]) ?? []));
-    supabase.from('routes').select('*').then(({ data }) => setRoutes((data as Route[]) ?? []));
+    supabase.from('groups').select('*').then(({ data }) => setGroups((data as Group[]) ?? []));
     supabase
       .from('trips')
       .select('*')
@@ -37,22 +35,14 @@ export default function AdminHomeScreen() {
 
         <ScrollView contentContainerStyle={styles.content}>
           <ThemedText type="small" themeColor="textSecondary">
-            Buses, routes, stops, and students are managed directly in the Supabase Studio table
-            editor for now — in-app admin screens are a later polish pass.
+            Schools, groups, and students are all self-service now (join codes) — this view is a
+            read-only overview for spot-checking, not a management screen.
           </ThemedText>
 
-          <Section title={`Buses (${buses.length})`}>
-            {buses.map((bus) => (
-              <ThemedText key={bus.id} type="default">
-                {bus.name} {bus.license_plate ? `· ${bus.license_plate}` : ''}
-              </ThemedText>
-            ))}
-          </Section>
-
-          <Section title={`Routes (${routes.length})`}>
-            {routes.map((route) => (
-              <ThemedText key={route.id} type="default">
-                {route.name}
+          <Section title={`Groups (${groups.length})`}>
+            {groups.map((group) => (
+              <ThemedText key={group.id} type="default">
+                {group.name}
               </ThemedText>
             ))}
           </Section>

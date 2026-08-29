@@ -39,3 +39,14 @@ export async function startTripTracking(
 
   return () => subscription.remove();
 }
+
+/** Single-shot current location, used by the parent join flow to set a pickup point. */
+export async function getCurrentLocation(): Promise<{ lat: number; lng: number }> {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Location permission is required to set your pickup point.');
+  }
+
+  const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+  return { lat: position.coords.latitude, lng: position.coords.longitude };
+}

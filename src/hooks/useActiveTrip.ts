@@ -3,29 +3,29 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Trip } from '@/types/database';
 
-/** Resolves the currently active trip (if any) for a given route, and stays live. */
-export function useActiveTrip(routeId: string | null | undefined) {
+/** Resolves the currently active trip (if any) for a given group, and stays live. */
+export function useActiveTrip(groupId: string | null | undefined) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
-  const [trackedRouteId, setTrackedRouteId] = useState(routeId);
+  const [trackedGroupId, setTrackedGroupId] = useState(groupId);
 
-  // Reset derived state during render when routeId changes, rather than in an
+  // Reset derived state during render when groupId changes, rather than in an
   // effect (React's recommended pattern for adjusting state from a changed prop).
-  if (routeId !== trackedRouteId) {
-    setTrackedRouteId(routeId);
+  if (groupId !== trackedGroupId) {
+    setTrackedGroupId(groupId);
     setTrip(null);
-    setLoading(!!routeId);
+    setLoading(!!groupId);
   }
 
   useEffect(() => {
-    if (!routeId) return;
+    if (!groupId) return;
 
     let cancelled = false;
 
     supabase
       .from('trips')
       .select('*')
-      .eq('route_id', routeId)
+      .eq('group_id', groupId)
       .eq('status', 'active')
       .order('started_at', { ascending: false })
       .limit(1)
@@ -38,10 +38,10 @@ export function useActiveTrip(routeId: string | null | undefined) {
       });
 
     const channel = supabase
-      .channel(`trips:route:${routeId}`)
+      .channel(`trips:group:${groupId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'trips', filter: `route_id=eq.${routeId}` },
+        { event: '*', schema: 'public', table: 'trips', filter: `group_id=eq.${groupId}` },
         (payload) => {
           const row = payload.new as Trip;
           if (payload.eventType === 'DELETE') {
@@ -59,7 +59,7 @@ export function useActiveTrip(routeId: string | null | undefined) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [routeId]);
+  }, [groupId]);
 
   return { trip, loading };
 }

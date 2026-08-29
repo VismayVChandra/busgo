@@ -8,5 +8,6 @@ export default function Index() {
   if (!session) return <Redirect href="/(auth)/login" />;
   if (profile?.role === 'driver') return <Redirect href="/(driver)/home" />;
   if (profile?.role === 'admin') return <Redirect href="/(admin)/home" />;
+  if (profile?.role === 'school') return <Redirect href="/(school)/home" />;
   return <Redirect href="/(parent)/home" />;
 }

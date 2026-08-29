@@ -7,5 +7,10 @@ export default function ParentLayout() {
 
   if (profile?.role !== 'parent') return <Redirect href="/" />;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack>
+      <Stack.Screen name="home" options={{ headerShown: false }} />
+      <Stack.Screen name="join" options={{ presentation: 'modal', headerShown: true, title: 'Add a child' }} />
+    </Stack>
+  );
 }

@@ -1,33 +1,32 @@
 import { StyleSheet } from 'react-native';
-import type { LatLng } from 'react-native-maps';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import type { Stop } from '@/types/database';
+import type { MapPoint } from '@/types/database';
 
 type Props = {
-  stops: Stop[];
-  busLocation: LatLng | null;
-  highlightedStopId?: string;
+  points: MapPoint[];
+  busLocation: { latitude: number; longitude: number } | null;
+  highlightedPointId?: string;
 };
 
-// react-native-maps has no web implementation. Busgo ships native-only
-// (Play Store / App Store); this stands in for local web dev/testing only.
-export function BusMap({ stops, busLocation, highlightedStopId }: Props) {
+// react-native-webview has no web implementation either. Busgo ships
+// native-only (Play Store / App Store); this stands in for local web dev/testing only.
+export function BusMap({ points, busLocation, highlightedPointId }: Props) {
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
       <ThemedText type="small" themeColor="textSecondary" style={styles.notice}>
-        Map preview isn't available on web — run the app on Android/iOS to see it.
+        Map preview isn&apos;t available on web — run the app on Android/iOS to see it.
       </ThemedText>
       {busLocation && (
         <ThemedText type="small">
           Bus at {busLocation.latitude.toFixed(4)}, {busLocation.longitude.toFixed(4)}
         </ThemedText>
       )}
-      {stops.map((stop) => (
-        <ThemedText key={stop.id} type={stop.id === highlightedStopId ? 'smallBold' : 'small'}>
-          {stop.sequence_order}. {stop.name}
+      {points.map((point) => (
+        <ThemedText key={point.id} type={point.id === highlightedPointId ? 'smallBold' : 'small'}>
+          {point.name}
         </ThemedText>
       ))}
     </ThemedView>

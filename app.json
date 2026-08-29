@@ -19,11 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
-      "config": {
-        "googleMaps": {
-          "apiKey": "REPLACE_WITH_GOOGLE_MAPS_ANDROID_API_KEY"
-        }
-      }
+      "package": "com.anonymous.Busgo"
     },
     "web": {
       "output": "single",

@@ -75,7 +75,7 @@ export default function LoginScreen() {
 
         {mode === 'signUp' && (
           <ThemedView style={styles.roleRow}>
-            {(['parent', 'driver'] as const).map((option) => (
+            {(['parent', 'driver', 'school'] as const).map((option) => (
               <Pressable
                 key={option}
                 onPress={() => setRole(option)}
@@ -85,7 +85,7 @@ export default function LoginScreen() {
                   role === option && { backgroundColor: theme.backgroundSelected },
                 ]}>
                 <ThemedText type="smallBold" style={styles.roleOptionText}>
-                  {option === 'parent' ? "I'm a parent" : "I'm a driver"}
+                  {option === 'parent' ? 'Parent' : option === 'driver' ? 'Driver' : 'School'}
                 </ThemedText>
               </Pressable>
             ))}
