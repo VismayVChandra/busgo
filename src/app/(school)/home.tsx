@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Pressable, Share, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Share2 } from 'lucide-react-native';
 
+import { AttendanceTrends } from '@/components/attendance-trends';
 import { BusMap } from '@/components/map-view';
 import { CreateSchoolForm } from '@/components/create-school-form';
 import { PendingGroupApprovals } from '@/components/pending-group-approvals';
@@ -87,45 +88,49 @@ export default function SchoolHomeScreen() {
           <SignOutLink />
         </ThemedView>
 
-        <ThemedView style={styles.mapCard}>
-          <ThemedView style={[styles.mapContainer, { borderColor: theme.border }, CardShadow]}>
-            <BusMap points={activePoints} busLocation={null} />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ThemedView style={styles.mapCard}>
+            <ThemedView style={[styles.mapContainer, { borderColor: theme.border }, CardShadow]}>
+              <BusMap points={activePoints} busLocation={null} />
+            </ThemedView>
           </ThemedView>
-        </ThemedView>
 
-        <PendingGroupApprovals entries={pendingEntries} />
+          <PendingGroupApprovals entries={pendingEntries} />
 
-        <ThemedView style={styles.list}>
-          {verifiedEntries.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              {fleet.length === 0
-                ? 'No buses linked yet. Share your school code with drivers.'
-                : 'No verified buses yet.'}
-            </ThemedText>
-          ) : (
-            verifiedEntries.map((entry) => {
-              const onTrip = !!entry.trip;
-              return (
-                <ThemedView
-                  key={entry.group.id}
-                  type="surface"
-                  style={[styles.listRow, { borderColor: theme.border }, CardShadow]}>
+          <ThemedView style={styles.list}>
+            {verifiedEntries.length === 0 ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                {fleet.length === 0
+                  ? 'No buses linked yet. Share your school code with drivers.'
+                  : 'No verified buses yet.'}
+              </ThemedText>
+            ) : (
+              verifiedEntries.map((entry) => {
+                const onTrip = !!entry.trip;
+                return (
                   <ThemedView
-                    style={[styles.statusDot, { backgroundColor: onTrip ? theme.success : theme.textSecondary }]}
-                  />
-                  <ThemedView style={styles.listRowText}>
-                    <ThemedText type="default">{entry.group.name}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {onTrip ? `On trip since ${new Date(entry.trip!.started_at).toLocaleTimeString()}` : 'Idle'}
-                    </ThemedText>
+                    key={entry.group.id}
+                    type="surface"
+                    style={[styles.listRow, { borderColor: theme.border }, CardShadow]}>
+                    <ThemedView
+                      style={[styles.statusDot, { backgroundColor: onTrip ? theme.success : theme.textSecondary }]}
+                    />
+                    <ThemedView style={styles.listRowText}>
+                      <ThemedText type="default">{entry.group.name}</ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {onTrip ? `On trip since ${new Date(entry.trip!.started_at).toLocaleTimeString()}` : 'Idle'}
+                      </ThemedText>
+                    </ThemedView>
                   </ThemedView>
-                </ThemedView>
-              );
-            })
-          )}
-        </ThemedView>
+                );
+              })
+            )}
+          </ThemedView>
 
-        <RouteSheet schoolName={school.name} fleet={verifiedEntries} />
+          <AttendanceTrends entries={verifiedEntries} />
+
+          <RouteSheet schoolName={school.name} fleet={verifiedEntries} />
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -143,7 +148,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
   },
   shareRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginTop: Spacing.half },
-  mapCard: { flex: 1, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
+  scrollContent: { paddingBottom: Spacing.six },
+  mapCard: { height: 220, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
   mapContainer: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden' },
   list: { padding: Spacing.four, gap: Spacing.two },
   listRow: {
