@@ -4,6 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 
+import { AbsenceToggle } from '@/components/absence-toggle';
+import { BoardingStatusBadge } from '@/components/boarding-status-badge';
+import { BroadcastBanner } from '@/components/broadcast-banner';
 import { BusMap } from '@/components/map-view';
 import { JoinGroupForm } from '@/components/join-group-form';
 import { SignOutLink } from '@/components/sign-out-link';
@@ -96,6 +99,8 @@ export default function ParentHomeScreen() {
           <SignOutLink />
         </ThemedView>
 
+        {selected && <BroadcastBanner groupId={selected.group_id} />}
+
         <ThemedView style={styles.mapCard}>
           <ThemedView style={[styles.mapContainer, { borderColor: theme.border }, CardShadow]}>
             <BusMap
@@ -116,6 +121,10 @@ export default function ParentHomeScreen() {
               point={{ name: selected.full_name, lat: selected.pickup_lat, lng: selected.pickup_lng }}
               busLocation={busLocation}
             />
+            <BoardingStatusBadge tripId={trip?.id} studentId={selected.id} />
+            <ThemedView style={styles.absenceRow}>
+              <AbsenceToggle studentId={selected.id} />
+            </ThemedView>
           </ThemedView>
         )}
       </SafeAreaView>
@@ -151,5 +160,6 @@ const styles = StyleSheet.create({
   },
   mapCard: { flex: 1, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
   mapContainer: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden' },
-  footer: { padding: Spacing.four },
+  footer: { padding: Spacing.four, gap: Spacing.two },
+  absenceRow: { alignItems: 'flex-start' },
 });

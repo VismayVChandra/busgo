@@ -5,6 +5,7 @@ import { Share2 } from 'lucide-react-native';
 
 import { BusMap } from '@/components/map-view';
 import { CreateSchoolForm } from '@/components/create-school-form';
+import { RouteSheet } from '@/components/route-sheet';
 import { SignOutLink } from '@/components/sign-out-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -111,6 +112,8 @@ export default function SchoolHomeScreen() {
             })
           )}
         </ThemedView>
+
+        <RouteSheet schoolName={school.name} fleet={fleet} />
       </SafeAreaView>
     </ThemedView>
   );

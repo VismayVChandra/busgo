@@ -3,6 +3,8 @@ import { Pressable, Share, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Route as RouteIcon, Share2 } from 'lucide-react-native';
 
+import { BoardingRoster } from '@/components/boarding-roster';
+import { BroadcastComposer } from '@/components/broadcast-composer';
 import { CreateGroupForm } from '@/components/create-group-form';
 import { BusMap } from '@/components/map-view';
 import { SignOutLink } from '@/components/sign-out-link';
@@ -14,10 +16,12 @@ import { CardShadow, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useActiveTrip } from '@/hooks/useActiveTrip';
 import { useGroupRoster } from '@/hooks/useGroupRoster';
+import { useTodayAbsences } from '@/hooks/useTodayAbsences';
 import { useTripLocationSubscription } from '@/hooks/useTripLocationSubscription';
 import { TripControls } from '@/components/trip-controls';
 import { useAuth } from '@/lib/auth';
 import { getCurrentLocation, startTripTracking } from '@/lib/location';
+import { registerForPushNotifications } from '@/lib/notifications';
 import { optimizeRouteOrder } from '@/lib/routing';
 import { supabase } from '@/lib/supabase';
 import type { Group, School, Student } from '@/types/database';
@@ -40,9 +44,11 @@ export default function DriverHomeScreen() {
   const roster = useGroupRoster(group?.id);
   const { trip } = useActiveTrip(group?.id);
   const busLocation = useTripLocationSubscription(trip?.id);
-  const displayRoster = orderedRoster ?? roster;
+  const absentIds = useTodayAbsences(group?.id);
+  const activeRoster = roster.filter((s) => !absentIds.has(s.id));
+  const displayRoster = orderedRoster ?? activeRoster;
 
-  const rosterKey = roster.map((s) => s.id).sort().join(',');
+  const rosterKey = activeRoster.map((s) => s.id).sort().join(',');
   const [trackedRosterKey, setTrackedRosterKey] = useState(rosterKey);
   // A newly joined (or removed) student invalidates any previously computed
   // route order — reset during render, rather than in an effect.
@@ -60,9 +66,9 @@ export default function DriverHomeScreen() {
     try {
       const start = await getCurrentLocation();
       setRouteStart({ latitude: start.lat, longitude: start.lng });
-      const points = roster.map((s) => ({ id: s.id, lat: s.pickup_lat, lng: s.pickup_lng }));
+      const points = activeRoster.map((s) => ({ id: s.id, lat: s.pickup_lat, lng: s.pickup_lng }));
       const ordered = optimizeRouteOrder({ lat: start.lat, lng: start.lng }, points);
-      const rosterById = new Map(roster.map((s) => [s.id, s]));
+      const rosterById = new Map(activeRoster.map((s) => [s.id, s]));
       setOrderedRoster(ordered.map((p) => rosterById.get(p.id)!));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not get your location');
@@ -123,6 +129,10 @@ export default function DriverHomeScreen() {
 
   // Stop tracking if the driver navigates away or the app is closed mid-trip.
   useEffect(() => () => stopTrackingRef.current?.(), []);
+
+  useEffect(() => {
+    registerForPushNotifications();
+  }, []);
 
   const handleStart = useCallback(async () => {
     if (!group || !profile) return;
@@ -191,7 +201,9 @@ export default function DriverHomeScreen() {
           <LinkSchoolRow groupId={group.id} onLinked={(s) => setSchool(s)} />
         )}
 
-        {roster.length > 1 && (
+        <BroadcastComposer groupId={group.id} />
+
+        {activeRoster.length > 1 && (
           <ThemedView style={styles.optimizeRow}>
             <Button
               label={orderedRoster ? 'Re-optimize route' : 'Optimize pickup route'}
@@ -214,20 +226,12 @@ export default function DriverHomeScreen() {
           </ThemedView>
         </ThemedView>
 
-        {orderedRoster && (
-          <ThemedView style={styles.stopList}>
-            {orderedRoster.map((student, index) => (
-              <ThemedView key={student.id} style={styles.stopRow}>
-                <ThemedView style={[styles.stopBadge, { backgroundColor: theme.primary }]}>
-                  <ThemedText type="small" style={{ color: theme.primaryForeground }}>
-                    {index + 1}
-                  </ThemedText>
-                </ThemedView>
-                <ThemedText type="small">{student.full_name}</ThemedText>
-              </ThemedView>
-            ))}
-          </ThemedView>
-        )}
+        <BoardingRoster
+          roster={displayRoster}
+          ordered={!!orderedRoster}
+          tripId={trip?.id}
+          tripActive={trip?.status === 'active'}
+        />
 
         {error && (
           <ThemedText type="small" themeColor="error" style={styles.error}>
@@ -315,9 +319,6 @@ const styles = StyleSheet.create({
   optimizeRow: { paddingHorizontal: Spacing.four, marginBottom: Spacing.two },
   mapCard: { flex: 1, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
   mapContainer: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden' },
-  stopList: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, gap: Spacing.two },
-  stopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  stopBadge: { width: 22, height: 22, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   error: { textAlign: 'center', paddingHorizontal: Spacing.four },
   footer: { padding: Spacing.four },
 });

@@ -1,12 +1,17 @@
-// Triggered by a Database Webhook on trip_locations INSERT. For every student
-// on the trip's route whose stop is within their notify threshold and hasn't
-// already been notified for this trip, sends an Expo push and logs it.
+// Triggered by Database Webhooks on trip_locations, boarding_events, and
+// group_messages INSERTs, dispatched on payload.table. The name is historical
+// (this started as an ETA-only check) but stayed put once a real webhook
+// pointed at it — renaming later means re-pointing a live webhook.
 //
-// Secured with a shared secret (not withSupabase's built-in auth modes) since
-// this is called by an internal Database Webhook, not an end-user client.
-// Set the same value as an Edge Function secret (WEBHOOK_SECRET) and as a
-// custom header on the webhook in the Supabase dashboard.
+// Secured with a shared secret since this is called by internal Database
+// Webhooks, not an end-user client. Set the same value as an Edge Function
+// secret (WEBHOOK_SECRET) and as a custom header on each webhook in the
+// Supabase dashboard.
 
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
+
+// Duplicated from src/lib/eta.ts — Edge Functions run in a separate Deno
+// process from the app bundle, so this can't be a shared import.
 const EARTH_RADIUS_KM = 6371;
 const ASSUMED_AVERAGE_SPEED_KMH = 25;
 
@@ -24,82 +29,140 @@ function estimateEtaMinutes(from: { lat: number; lng: number }, to: { lat: numbe
   return (haversineDistanceKm(from, to) / ASSUMED_AVERAGE_SPEED_KMH) * 60;
 }
 
+type ExpoMessage = { to: string; title: string; body: string };
+
+async function sendExpoPush(messages: ExpoMessage[]) {
+  if (messages.length === 0) return;
+  await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(messages),
+  });
+}
+
 type WebhookPayload = {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
   table: string;
-  record: { id: number; trip_id: string; lat: number; lng: number };
+  record: Record<string, any>;
 };
 
-export default {
-  fetch: withSupabase({ auth: 'none' }, async (req: Request, ctx: any) => {
-    const secret = req.headers.get('x-webhook-secret');
-    if (!secret || secret !== Deno.env.get('WEBHOOK_SECRET')) {
-      return new Response('Unauthorized', { status: 401 });
-    }
+Deno.serve(async (req) => {
+  const secret = req.headers.get('x-webhook-secret');
+  if (!secret || secret !== Deno.env.get('WEBHOOK_SECRET')) {
+    return new Response('Unauthorized', { status: 401 });
+  }
 
-    const payload: WebhookPayload = await req.json();
-    if (payload.type !== 'INSERT' || payload.table !== 'trip_locations') {
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
+
+  const payload: WebhookPayload = await req.json();
+  if (payload.type !== 'INSERT') return Response.json({ skipped: true });
+
+  switch (payload.table) {
+    case 'trip_locations':
+      return handleEtaCheck(admin, payload.record);
+    case 'boarding_events':
+      return handleBoardingNotify(admin, payload.record);
+    case 'group_messages':
+      return handleBroadcastNotify(admin, payload.record);
+    default:
       return Response.json({ skipped: true });
-    }
+  }
+});
 
-    const { trip_id, lat, lng } = payload.record;
-    const admin = ctx.supabaseAdmin;
+async function handleEtaCheck(admin: SupabaseClient, record: any) {
+  const { trip_id, lat, lng } = record;
 
-    const { data: trip } = await admin
-      .from('trips')
-      .select('id, route_id, status')
-      .eq('id', trip_id)
-      .single();
-    if (!trip || trip.status !== 'active') return Response.json({ skipped: true });
+  const { data: trip } = await admin
+    .from('trips')
+    .select('id, group_id, status')
+    .eq('id', trip_id)
+    .single();
+  if (!trip || trip.status !== 'active') return Response.json({ skipped: true });
 
-    const { data: stops } = await admin.from('stops').select('id, lat, lng').eq('route_id', trip.route_id);
-    const { data: students } = await admin
-      .from('students')
-      .select('id, stop_id, parent_id')
-      .eq('route_id', trip.route_id);
-    if (!stops?.length || !students?.length) return Response.json({ notified: 0 });
+  const { data: students } = await admin
+    .from('students')
+    .select('id, full_name, parent_id, pickup_lat, pickup_lng')
+    .eq('group_id', trip.group_id);
+  if (!students?.length) return Response.json({ notified: 0 });
 
-    const stopById = new Map(stops.map((s: any) => [s.id, s]));
-    const parentIds = [...new Set(students.map((s: any) => s.parent_id))];
-    const { data: parents } = await admin
-      .from('profiles')
-      .select('id, push_token, notify_minutes_before')
-      .in('id', parentIds);
-    const parentById = new Map((parents ?? []).map((p: any) => [p.id, p]));
+  const parentIds = [...new Set(students.map((s: any) => s.parent_id))];
+  const { data: parents } = await admin
+    .from('profiles')
+    .select('id, push_token, notify_minutes_before')
+    .in('id', parentIds);
+  const parentById = new Map((parents ?? []).map((p: any) => [p.id, p]));
 
-    const messages: { to: string; title: string; body: string }[] = [];
+  const messages: ExpoMessage[] = [];
 
-    for (const student of students) {
-      const stop = stopById.get(student.stop_id);
-      const parent = parentById.get(student.parent_id);
-      if (!stop || !parent?.push_token) continue;
+  for (const student of students) {
+    const parent = parentById.get(student.parent_id);
+    if (!parent?.push_token) continue;
 
-      const etaMinutes = estimateEtaMinutes({ lat, lng }, { lat: stop.lat, lng: stop.lng });
-      if (etaMinutes > parent.notify_minutes_before) continue;
+    const etaMinutes = estimateEtaMinutes(
+      { lat, lng },
+      { lat: student.pickup_lat, lng: student.pickup_lng }
+    );
+    if (etaMinutes > parent.notify_minutes_before) continue;
 
-      // Insert first; only send a push if we won the race to claim this notification.
-      const { data: inserted } = await admin
-        .from('notification_log')
-        .insert({ trip_id, student_id: student.id })
-        .select('id')
-        .maybeSingle();
-      if (!inserted) continue; // already notified (unique constraint conflict)
+    // Insert first; only send a push if we won the race to claim this notification.
+    const { data: inserted } = await admin
+      .from('notification_log')
+      .insert({ trip_id, student_id: student.id })
+      .select('id')
+      .maybeSingle();
+    if (!inserted) continue; // already notified for this trip (unique constraint conflict)
 
-      messages.push({
-        to: parent.push_token,
-        title: 'Bus arriving soon',
-        body: `The bus is about ${Math.max(1, Math.round(etaMinutes))} min from ${stop.id === student.stop_id ? 'the stop' : 'your stop'}.`,
-      });
-    }
+    messages.push({
+      to: parent.push_token,
+      title: 'Bus arriving soon',
+      body: `The bus is about ${Math.max(1, Math.round(etaMinutes))} min from ${student.full_name}'s pickup point.`,
+    });
+  }
 
-    if (messages.length > 0) {
-      await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(messages),
-      });
-    }
+  await sendExpoPush(messages);
+  return Response.json({ notified: messages.length });
+}
 
-    return Response.json({ notified: messages.length });
-  }),
-};
+async function handleBoardingNotify(admin: SupabaseClient, record: any) {
+  const { student_id, status } = record;
+
+  const { data: student } = await admin
+    .from('students')
+    .select('full_name, parent_id')
+    .eq('id', student_id)
+    .single();
+  if (!student) return Response.json({ skipped: true });
+
+  const { data: parent } = await admin
+    .from('profiles')
+    .select('push_token')
+    .eq('id', student.parent_id)
+    .single();
+  if (!parent?.push_token) return Response.json({ notified: 0 });
+
+  const body =
+    status === 'boarded' ? `${student.full_name} boarded the bus.` : `${student.full_name} was dropped off.`;
+
+  await sendExpoPush([{ to: parent.push_token, title: 'Busgo', body }]);
+  return Response.json({ notified: 1 });
+}
+
+async function handleBroadcastNotify(admin: SupabaseClient, record: any) {
+  const { group_id, body } = record;
+
+  const { data: students } = await admin.from('students').select('parent_id').eq('group_id', group_id);
+  if (!students?.length) return Response.json({ notified: 0 });
+
+  const parentIds = [...new Set(students.map((s: any) => s.parent_id))];
+  const { data: parents } = await admin.from('profiles').select('push_token').in('id', parentIds);
+
+  const messages: ExpoMessage[] = (parents ?? [])
+    .filter((p: any) => p.push_token)
+    .map((p: any) => ({ to: p.push_token, title: 'Busgo alert', body }));
+
+  await sendExpoPush(messages);
+  return Response.json({ notified: messages.length });
+}

@@ -70,19 +70,22 @@ but nothing in the core flow requires one anymore.
 
 ## 4. Push notifications (check-eta-notify)
 
-**Not deployed yet, and currently stale** — it still queries the old `stops`/`students.route_id`
-columns from before the group/school pivot. Re-pointing it to `group_id`/`pickup_lat`/`pickup_lng`
-is required before deploying it; nothing breaks today since it was never live.
+**Deployed**, targeting the current schema, and covers three event types via one function
+(`payload.table` dispatch): ETA proximity (`trip_locations` INSERT), boarding/drop-off
+(`boarding_events` INSERT), and delay broadcasts (`group_messages` INSERT). Its `WEBHOOK_SECRET`
+Edge Function secret is already set.
 
-1. Deploy the function and set its secret:
-   ```bash
-   npx supabase functions deploy check-eta-notify
-   npx supabase secrets set WEBHOOK_SECRET=<a-random-string>
-   ```
-2. In Supabase Studio → Database → Webhooks, create a webhook on `trip_locations` INSERT that
-   calls `check-eta-notify`, with a custom header `x-webhook-secret: <the-same-random-string>`.
-3. Test end-to-end with the parent's app **fully backgrounded** — that's the actual point of a
-   push, not just an in-app banner.
+One manual step remains — Database Webhooks can only be created via the dashboard, not the CLI.
+In Supabase Studio → Database → Webhooks, create three webhooks (one per table below), each an
+INSERT trigger calling `check-eta-notify`, with a custom header `x-webhook-secret` set to the
+same value as the `WEBHOOK_SECRET` secret:
+
+- `trip_locations` INSERT
+- `boarding_events` INSERT
+- `group_messages` INSERT
+
+Test end-to-end with the parent's app **fully backgrounded** — that's the actual point of a
+push, not just an in-app banner.
 
 ## 5. Running locally
 

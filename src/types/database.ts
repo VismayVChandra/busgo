@@ -59,3 +59,30 @@ export type TripLocation = {
 };
 
 export type MapPoint = { id: string; lat: number; lng: number; name: string };
+
+export type BoardingStatus = 'boarded' | 'dropped_off';
+
+export type BoardingEvent = {
+  id: number;
+  trip_id: string;
+  student_id: string;
+  status: BoardingStatus;
+  recorded_at: string;
+  recorded_by: string;
+};
+
+export type Absence = {
+  id: string;
+  student_id: string;
+  absence_date: string;
+  created_by: string;
+  created_at: string;
+};
+
+export type GroupMessage = {
+  id: string;
+  group_id: string;
+  driver_id: string;
+  body: string;
+  created_at: string;
+};
