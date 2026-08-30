@@ -14,6 +14,7 @@ import { CardShadow, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSchoolFleet } from '@/hooks/useSchoolFleet';
 import { useAuth } from '@/lib/auth';
+import { registerForPushNotifications } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import type { School } from '@/types/database';
 
@@ -34,6 +35,10 @@ export default function SchoolHomeScreen() {
       lng: entry.location!.lng,
       name: entry.group.name,
     }));
+
+  useEffect(() => {
+    registerForPushNotifications();
+  }, []);
 
   useEffect(() => {
     if (!profile) return;

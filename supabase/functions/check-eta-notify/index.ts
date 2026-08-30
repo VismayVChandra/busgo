@@ -14,6 +14,7 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 // process from the app bundle, so this can't be a shared import.
 const EARTH_RADIUS_KM = 6371;
 const ASSUMED_AVERAGE_SPEED_KMH = 25;
+const SPEED_ALERT_THRESHOLD_MPS = 25; // ~90 km/h
 
 function haversineDistanceKm(from: { lat: number; lng: number }, to: { lat: number; lng: number }) {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -67,13 +68,15 @@ Deno.serve(async (req) => {
       return handleBoardingNotify(admin, payload.record);
     case 'group_messages':
       return handleBroadcastNotify(admin, payload.record);
+    case 'trip_alerts':
+      return handleTripAlertNotify(admin, payload.record);
     default:
       return Response.json({ skipped: true });
   }
 });
 
 async function handleEtaCheck(admin: SupabaseClient, record: any) {
-  const { trip_id, lat, lng } = record;
+  const { trip_id, lat, lng, speed } = record;
 
   const { data: trip } = await admin
     .from('trips')
@@ -81,6 +84,16 @@ async function handleEtaCheck(admin: SupabaseClient, record: any) {
     .eq('id', trip_id)
     .single();
   if (!trip || trip.status !== 'active') return Response.json({ skipped: true });
+
+  // speed can be null, or occasionally negative on some Android devices when
+  // GPS speed is unreliable — only treat a genuine non-negative reading as signal.
+  if (typeof speed === 'number' && speed >= 0 && speed > SPEED_ALERT_THRESHOLD_MPS) {
+    await admin.rpc('log_trip_alert', {
+      p_trip_id: trip_id,
+      p_alert_type: 'speeding',
+      p_detail: `Speed ${speed.toFixed(1)} m/s`,
+    });
+  }
 
   const { data: students } = await admin
     .from('students')
@@ -147,6 +160,26 @@ async function handleBoardingNotify(admin: SupabaseClient, record: any) {
     status === 'boarded' ? `${student.full_name} boarded the bus.` : `${student.full_name} was dropped off.`;
 
   await sendExpoPush([{ to: parent.push_token, title: 'Busgo', body }]);
+  return Response.json({ notified: 1 });
+}
+
+async function handleTripAlertNotify(admin: SupabaseClient, record: any) {
+  const { trip_id, alert_type, detail } = record;
+
+  const { data: trip } = await admin.from('trips').select('group_id').eq('id', trip_id).single();
+  if (!trip) return Response.json({ skipped: true });
+
+  const { data: group } = await admin.from('groups').select('school_id').eq('id', trip.group_id).single();
+  if (!group?.school_id) return Response.json({ skipped: true }); // independent groups have no school to notify
+
+  const { data: school } = await admin.from('schools').select('owner_id').eq('id', group.school_id).single();
+  if (!school) return Response.json({ skipped: true });
+
+  const { data: owner } = await admin.from('profiles').select('push_token').eq('id', school.owner_id).single();
+  if (!owner?.push_token) return Response.json({ notified: 0 });
+
+  const title = alert_type === 'speeding' ? 'Bus going too fast' : 'Bus has not moved';
+  await sendExpoPush([{ to: owner.push_token, title, body: detail ?? '' }]);
   return Response.json({ notified: 1 });
 }
 
