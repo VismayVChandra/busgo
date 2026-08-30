@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import type { BoardingEvent } from '@/types/database';
@@ -7,6 +7,12 @@ import type { BoardingEvent } from '@/types/database';
 export function useBoardingStatus(tripId: string | null | undefined) {
   const [statusByStudent, setStatusByStudent] = useState<Map<string, BoardingEvent>>(new Map());
   const [trackedTripId, setTrackedTripId] = useState(tripId);
+  // supabase.channel(topic) reuses an existing channel if the topic string
+  // already exists — without a per-instance suffix, two components calling
+  // this hook with the same tripId (e.g. BoardingRoster + TripEndSummary,
+  // both mounted while a trip is ending) would share one channel object,
+  // and the second .on() call after the first .subscribe() throws.
+  const instanceId = useId();
 
   // Reset during render when tripId changes, rather than in an effect.
   if (tripId !== trackedTripId) {
@@ -31,7 +37,7 @@ export function useBoardingStatus(tripId: string | null | undefined) {
       });
 
     const channel = supabase
-      .channel(`boarding_events:trip:${tripId}`)
+      .channel(`boarding_events:trip:${tripId}:${instanceId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'boarding_events', filter: `trip_id=eq.${tripId}` },
@@ -46,7 +52,7 @@ export function useBoardingStatus(tripId: string | null | undefined) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [tripId]);
+  }, [tripId, instanceId]);
 
   return statusByStudent;
 }

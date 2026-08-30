@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { getTodayDateString } from '@/lib/date';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +14,11 @@ export function useTodayAbsences(groupId: string | null | undefined) {
   const [absentIds, setAbsentIds] = useState<Set<string>>(new Set());
   const [trackedGroupId, setTrackedGroupId] = useState(groupId);
   const today = getTodayDateString();
+  // supabase.channel(topic) reuses an existing channel for an identical
+  // topic string — a per-instance suffix keeps two simultaneous consumers
+  // of the same groupId from colliding (see useBoardingStatus for the bug
+  // this caused in practice).
+  const instanceId = useId();
 
   // Reset during render when groupId changes, rather than in an effect.
   if (groupId !== trackedGroupId) {
@@ -35,7 +40,7 @@ export function useTodayAbsences(groupId: string | null | undefined) {
       });
 
     const channel = supabase
-      .channel(`absences:group:${groupId}`)
+      .channel(`absences:group:${groupId}:${instanceId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'absences' }, (payload) => {
         const row = payload.new as Absence;
         if (row.absence_date === today) setAbsentIds((current) => new Set(current).add(row.student_id));
@@ -56,7 +61,7 @@ export function useTodayAbsences(groupId: string | null | undefined) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [groupId, today]);
+  }, [groupId, today, instanceId]);
 
   return absentIds;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import type { VerificationStatus } from '@/types/database';
@@ -7,6 +7,9 @@ import type { VerificationStatus } from '@/types/database';
 export function useGroupVerification(groupId: string | null | undefined) {
   const [status, setStatus] = useState<VerificationStatus | null>(null);
   const [trackedGroupId, setTrackedGroupId] = useState(groupId);
+  // Per-instance suffix so two simultaneous consumers of the same groupId
+  // don't share one already-subscribed channel object (see useBoardingStatus).
+  const instanceId = useId();
 
   // Reset during render when groupId changes, rather than in an effect.
   if (groupId !== trackedGroupId) {
@@ -29,7 +32,7 @@ export function useGroupVerification(groupId: string | null | undefined) {
       });
 
     const channel = supabase
-      .channel(`groups:verification:${groupId}`)
+      .channel(`groups:verification:${groupId}:${instanceId}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${groupId}` },
@@ -41,7 +44,7 @@ export function useGroupVerification(groupId: string | null | undefined) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [groupId]);
+  }, [groupId, instanceId]);
 
   return status;
 }
