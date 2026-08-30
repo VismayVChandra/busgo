@@ -20,6 +20,7 @@ import { useGroupRoster } from '@/hooks/useGroupRoster';
 import { useTodayAbsences } from '@/hooks/useTodayAbsences';
 import { useTripLocationSubscription } from '@/hooks/useTripLocationSubscription';
 import { TripControls } from '@/components/trip-controls';
+import { TripEndSummary } from '@/components/trip-end-summary';
 import { useAuth } from '@/lib/auth';
 import { getCurrentLocation, startTripTracking } from '@/lib/location';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -39,6 +40,7 @@ export default function DriverHomeScreen() {
   const [routeStart, setRouteStart] = useState<{ latitude: number; longitude: number } | null>(null);
   const [orderedRoster, setOrderedRoster] = useState<Student[] | null>(null);
   const [optimizing, setOptimizing] = useState(false);
+  const [endSummary, setEndSummary] = useState<{ tripId: string; roster: Student[] } | null>(null);
   // Imperative handle for the GPS subscription, not display state.
   const stopTrackingRef = useRef<(() => void) | null>(null);
 
@@ -156,7 +158,8 @@ export default function DriverHomeScreen() {
       .eq('id', trip.id);
     setBusy(false);
     if (error) setError(error.message);
-  }, [trip]);
+    else setEndSummary({ tripId: trip.id, roster: displayRoster });
+  }, [trip, displayRoster]);
 
   function handleShare() {
     if (!group) return;
@@ -255,6 +258,13 @@ export default function DriverHomeScreen() {
             onEnd={handleEnd}
           />
         </ThemedView>
+
+        <TripEndSummary
+          visible={!!endSummary}
+          tripId={endSummary?.tripId ?? null}
+          roster={endSummary?.roster ?? []}
+          onClose={() => setEndSummary(null)}
+        />
       </SafeAreaView>
     </ThemedView>
   );
