@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react-native';
 import { AbsenceToggle } from '@/components/absence-toggle';
 import { BoardingStatusBadge } from '@/components/boarding-status-badge';
 import { BroadcastBanner } from '@/components/broadcast-banner';
+import { GroupVerificationBadge } from '@/components/group-verification-badge';
 import { BusMap } from '@/components/map-view';
 import { JoinGroupForm } from '@/components/join-group-form';
 import { SignOutLink } from '@/components/sign-out-link';
@@ -122,6 +123,7 @@ export default function ParentHomeScreen() {
               busLocation={busLocation}
             />
             <BoardingStatusBadge tripId={trip?.id} studentId={selected.id} />
+            <GroupVerificationBadge groupId={selected.group_id} />
             <ThemedView style={styles.absenceRow}>
               <AbsenceToggle studentId={selected.id} />
             </ThemedView>

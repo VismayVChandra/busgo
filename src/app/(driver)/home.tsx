@@ -6,6 +6,7 @@ import { Route as RouteIcon, Share2 } from 'lucide-react-native';
 import { BoardingRoster } from '@/components/boarding-roster';
 import { BroadcastComposer } from '@/components/broadcast-composer';
 import { CreateGroupForm } from '@/components/create-group-form';
+import { DriverVerificationStatus } from '@/components/driver-verification-status';
 import { BusMap } from '@/components/map-view';
 import { SignOutLink } from '@/components/sign-out-link';
 import { ThemedText } from '@/components/themed-text';
@@ -187,9 +188,16 @@ export default function DriverHomeScreen() {
                 Code: {group.join_code} · Share
               </ThemedText>
             </Pressable>
+            {group.verification_status === 'verified' && (
+              <DriverVerificationStatus group={group} school={school} />
+            )}
           </ThemedView>
           <SignOutLink />
         </ThemedView>
+
+        {group.verification_status !== 'verified' && (
+          <DriverVerificationStatus group={group} school={school} />
+        )}
 
         {group.school_id ? (
           school && (

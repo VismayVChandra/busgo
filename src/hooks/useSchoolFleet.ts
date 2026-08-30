@@ -91,10 +91,21 @@ export function useSchoolFleet(schoolId: string | null | undefined) {
       })
       .subscribe();
 
+    // Picks up verification_status changes (e.g. this school approving a
+    // group) without a manual refresh.
+    const groupsChannel = supabase
+      .channel(`school_fleet_groups:${schoolId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups' }, (payload) => {
+        const row = payload.new as Group;
+        setFleet((current) => current.map((entry) => (entry.group.id === row.id ? { ...entry, group: row } : entry)));
+      })
+      .subscribe();
+
     return () => {
       cancelled = true;
       supabase.removeChannel(tripsChannel);
       supabase.removeChannel(locationsChannel);
+      supabase.removeChannel(groupsChannel);
     };
   }, [schoolId]);
 

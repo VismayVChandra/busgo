@@ -47,6 +47,12 @@
           "icon": "./assets/images/android-icon-foreground.png",
           "color": "#17666B"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Busgo uses your photo library to submit your ID/license for verification."
+        }
       ]
     ],
     "experiments": {

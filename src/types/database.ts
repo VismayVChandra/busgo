@@ -18,6 +18,8 @@ export type School = {
   created_at: string;
 };
 
+export type VerificationStatus = 'pending' | 'verified' | 'rejected';
+
 export type Group = {
   id: string;
   name: string;
@@ -25,6 +27,10 @@ export type Group = {
   school_id: string | null;
   join_code: string;
   created_at: string;
+  verification_status: VerificationStatus;
+  verified_at: string | null;
+  verified_by: string | null;
+  id_document_path: string | null;
 };
 
 export type Student = {

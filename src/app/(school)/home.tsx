@@ -5,6 +5,7 @@ import { Share2 } from 'lucide-react-native';
 
 import { BusMap } from '@/components/map-view';
 import { CreateSchoolForm } from '@/components/create-school-form';
+import { PendingGroupApprovals } from '@/components/pending-group-approvals';
 import { RouteSheet } from '@/components/route-sheet';
 import { SignOutLink } from '@/components/sign-out-link';
 import { ThemedText } from '@/components/themed-text';
@@ -23,7 +24,9 @@ export default function SchoolHomeScreen() {
   const [loaded, setLoaded] = useState(false);
 
   const fleet = useSchoolFleet(school?.id);
-  const activePoints = fleet
+  const pendingEntries = fleet.filter((entry) => entry.group.verification_status === 'pending');
+  const verifiedEntries = fleet.filter((entry) => entry.group.verification_status === 'verified');
+  const activePoints = verifiedEntries
     .filter((entry) => entry.trip && entry.location)
     .map((entry) => ({
       id: entry.group.id,
@@ -85,13 +88,17 @@ export default function SchoolHomeScreen() {
           </ThemedView>
         </ThemedView>
 
+        <PendingGroupApprovals entries={pendingEntries} />
+
         <ThemedView style={styles.list}>
-          {fleet.length === 0 ? (
+          {verifiedEntries.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary">
-              No buses linked yet. Share your school code with drivers.
+              {fleet.length === 0
+                ? 'No buses linked yet. Share your school code with drivers.'
+                : 'No verified buses yet.'}
             </ThemedText>
           ) : (
-            fleet.map((entry) => {
+            verifiedEntries.map((entry) => {
               const onTrip = !!entry.trip;
               return (
                 <ThemedView
@@ -113,7 +120,7 @@ export default function SchoolHomeScreen() {
           )}
         </ThemedView>
 
-        <RouteSheet schoolName={school.name} fleet={fleet} />
+        <RouteSheet schoolName={school.name} fleet={verifiedEntries} />
       </SafeAreaView>
     </ThemedView>
   );
