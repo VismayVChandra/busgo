@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Plus } from 'lucide-react-native';
+import { History, Plus } from 'lucide-react-native';
 
 import { AbsenceToggle } from '@/components/absence-toggle';
 import { BoardingStatusBadge } from '@/components/boarding-status-badge';
@@ -124,8 +124,23 @@ export default function ParentHomeScreen() {
             />
             <BoardingStatusBadge tripId={trip?.id} studentId={selected.id} />
             <GroupVerificationBadge groupId={selected.group_id} />
-            <ThemedView style={styles.absenceRow}>
-              <AbsenceToggle studentId={selected.id} />
+            <ThemedView style={styles.footerRow}>
+              <ThemedView style={styles.absenceRow}>
+                <AbsenceToggle studentId={selected.id} />
+              </ThemedView>
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/(parent)/history',
+                    params: { studentId: selected.id, studentName: selected.full_name },
+                  })
+                }
+                style={styles.historyLink}>
+                <History size={13} color={theme.textSecondary} />
+                <ThemedText type="link" themeColor="textSecondary">
+                  History
+                </ThemedText>
+              </Pressable>
             </ThemedView>
           </ThemedView>
         )}
@@ -163,5 +178,7 @@ const styles = StyleSheet.create({
   mapCard: { flex: 1, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
   mapContainer: { flex: 1, borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden' },
   footer: { padding: Spacing.four, gap: Spacing.two },
+  footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   absenceRow: { alignItems: 'flex-start' },
+  historyLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half },
 });

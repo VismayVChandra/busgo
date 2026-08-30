@@ -11,6 +11,7 @@ export default function ParentLayout() {
     <Stack>
       <Stack.Screen name="home" options={{ headerShown: false }} />
       <Stack.Screen name="join" options={{ presentation: 'modal', headerShown: true, title: 'Add a child' }} />
+      <Stack.Screen name="history" options={{ headerShown: true, title: 'Trip history' }} />
     </Stack>
   );
 }
